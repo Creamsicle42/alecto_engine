@@ -37,6 +37,7 @@ impl<R: Read + Seek> ArchiveManager<R> {
                         "File in zip archive has invalid name, file path contains invalid bytes."
                     ))?
                     .to_owned();
+                log::debug!("Indexing asset file \"{}\"", file_name);
                 resource_map.insert(
                     file_name,
                     ArchiveResourceIndex {

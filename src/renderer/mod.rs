@@ -61,8 +61,6 @@ impl RenderState {
         let (window, device) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("Alecto")
             .build(event_loop);
-        println!("{:?}", device.get_capabilities().supported_glsl_versions);
-        println!("{:?}", device.get_opengl_version());
         let vertex_data = vec![
             Vertex {
                 position: [0.0, 0.0, 0.0],

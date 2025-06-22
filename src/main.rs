@@ -1,32 +1,65 @@
 #![allow(unused)]
 pub mod assets;
+pub mod game;
+pub mod registries;
 pub mod renderer;
+use log::*;
 use std::time::Instant;
 
 use eyre::{Ok, Result};
 use winit::{application::ApplicationHandler, event::WindowEvent, event_loop::EventLoop, platform};
 
 fn main() -> Result<()> {
+    // Initialize Logger
+    pretty_env_logger::init();
+
+    // Locate asset file
     let asset_file_path = std::env::current_exe()?.with_file_name("assets.zip");
     let asset_file = std::fs::File::open(asset_file_path)?;
+    let mut asset_manager = assets::AssetManager::new(vec![asset_file])?;
 
-    let event_loop = EventLoop::new()?;
+    // TODO: Find init files in asset files and run registry builder scripts
+    let registry_command_queue = registries::RegistryQueue::default();
+    let init_script = asset_manager.get_file_raw("init.lua".to_owned());
+    let lua = mlua::Lua::new_with(
+        mlua::StdLib::TABLE & mlua::StdLib::STRING & mlua::StdLib::MATH,
+        mlua::LuaOptions::new(),
+    )
+    .expect("Failed to create Lua state");
+
+    // Upload registry queue object to lua state
+    lua.globals()
+        .set("Registry", registry_command_queue.clone());
+    lua.load(init_script.expect("init.lua not present")).exec();
+
+    // Purge excess lua functionality
+    lua.globals().set("Registry", mlua::Nil);
+
+    let registries = registries::GameRegistries::new(registry_command_queue, &mut asset_manager);
+
+    // TODO: Create a dummy game state and apply commands from init scripts
 
     // Initialize App State
     let mut app_state = AppState {
-        asset_manager: Some(assets::AssetManager::new(vec![asset_file])?),
-        ..Default::default()
+        asset_manager,
+        registry_manager: registries,
+        render_state: None,
+        game_state: game::GameState::new(lua),
     };
+
+    let event_loop = EventLoop::new()?;
     event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
     event_loop.run_app(&mut app_state);
 
     Ok(())
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct AppState {
     render_state: Option<renderer::RenderState>,
-    asset_manager: Option<assets::AssetManager>,
+    asset_manager: assets::AssetManager,
+    registry_manager: registries::GameRegistries,
+    game_state: game::GameState,
 }
 
 impl ApplicationHandler for AppState {
@@ -50,6 +83,8 @@ impl ApplicationHandler for AppState {
                 }
             }
             WindowEvent::RedrawRequested => {
+                // Check if time since last frame is enough to run a sim tick
+                // TODO: Rum Simulation Tick
                 if let Some(render_state) = &mut self.render_state {
                     render_state.redraw();
                 }

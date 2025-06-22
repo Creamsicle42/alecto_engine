@@ -13,4 +13,8 @@ impl AssetManager {
         let archive_manager = archive_manager::ArchiveManager::create(archives)?;
         Ok(AssetManager { archive_manager })
     }
+
+    pub fn get_file_raw(&mut self, file_id: String) -> Option<Vec<u8>> {
+        self.archive_manager.get_resource_bytes(file_id)
+    }
 }
